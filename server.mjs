@@ -5,6 +5,6 @@ http.createServer((req, res) => {
   res.end(JSON.stringify({
     ok: true,
     product: 'dope_24/7',
-    status: 'live-v2'
+    status: 'live-v3'
   }));
 }).listen(3000, '0.0.0.0');
