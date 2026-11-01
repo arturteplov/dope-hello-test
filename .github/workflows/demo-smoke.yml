@@ -1,0 +1,28 @@
+name: interactive quote demo smoke
+on:
+  push:
+    branches: ["demo/team-quote"]
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify demo serves app and computes estimates
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check server.mjs
+          node server.mjs &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true' EXIT
+          for i in {1..25}; do
+            if curl -fsS http://127.0.0.1:3000/health >/dev/null; then break; fi
+            sleep .2
+          done
+          curl -fsS http://127.0.0.1:3000/ | grep -F 'Parts quote'
+          curl -fsS http://127.0.0.1:3000/checkout | grep -F 'checkout-ready'
+          curl -fsS -H 'Content-Type: application/json' -d '{"items":[{"item":"Pump","quantity":2,"unitPrice":12.5}],"markupPercent":20}' http://127.0.0.1:3000/api/quote | node -e "let s='';process.stdin.on('data',c=>s+=c).on('end',()=>{const d=JSON.parse(s);if(d.subtotal!==25||d.markupAmount!==5||d.total!==30)process.exit(1);})"
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -d '{"items":[],"markupPercent":20}' http://127.0.0.1:3000/api/quote)" = 400
